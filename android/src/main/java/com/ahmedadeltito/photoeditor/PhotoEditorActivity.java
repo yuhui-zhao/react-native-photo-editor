@@ -14,6 +14,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,6 +24,7 @@ import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.exifinterface.media.ExifInterface;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.Fragment;
@@ -55,6 +57,10 @@ import com.ahmedadeltito.photoeditorsdk.OnPhotoEditorSDKListener;
 import com.ahmedadeltito.photoeditorsdk.PhotoEditorSDK;
 import com.ahmedadeltito.photoeditorsdk.ViewType;
 import com.viewpagerindicator.PageIndicator;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
+
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -113,16 +119,30 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
 
         selectedImagePath = getIntent().getExtras().getString("selectedImagePath");
-        String color = getIntent().getExtras().getString("color");
+        
         if (selectedImagePath.contains("content://")) {
             selectedImagePath = getPath(Uri.parse(selectedImagePath));
         }
-        Log.d("PhotoEditorSDK", "Selected image path: " + selectedImagePath);
+        doBeforeBitmapLoad();
+        Glide.with(this).asBitmap().load(selectedImagePath).into(new CustomTarget<Bitmap>() {
+            @Override
+            public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                doAfterBitmapLoad(resource);
+            }
 
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inSampleSize = 1;
-        Bitmap bitmap = BitmapFactory.decodeFile(selectedImagePath, options);
+            @Override
+            public void onLoadCleared(@Nullable Drawable placeholder) {
+            }
+        });
+    }
 
+    private void doBeforeBitmapLoad() {
+        String color = getIntent().getExtras().getString("color");
+        Button goToNextTextView = (Button) findViewById(R.id.go_to_next_screen_tv);
+        goToNextTextView.setBackgroundColor(Color.parseColor(color));
+    }
+
+    private void doAfterBitmapLoad(Bitmap bitmap) {   
         Bitmap rotatedBitmap;
         try {
             ExifInterface exif = new ExifInterface(selectedImagePath);
@@ -156,7 +176,6 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
         doneDrawingTextView = (TextView) findViewById(R.id.done_drawing_tv);
         TextView clearAllTextView = (TextView) findViewById(R.id.clear_all_tv);
         Button goToNextTextView = (Button) findViewById(R.id.go_to_next_screen_tv);
-        goToNextTextView.setBackgroundColor(Color.parseColor(color));
         photoEditImageView = (ImageView) findViewById(R.id.photo_edit_iv);
         mLayout = (SlidingUpPanelLayout) findViewById(R.id.sliding_layout);
         topShadow = findViewById(R.id.top_shadow);
@@ -493,16 +512,26 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
             public void onTick(long millisUntilFinished) {
 
             }
-
+            private String getImagePath() {
+                String imageName = UUID.randomUUID().toString() + ".jpg";
+                File dir = new File(getCacheDir(), "zinc_annotations");
+                if (!dir.exists()) {
+                    dir.mkdir();
+                }
+                return dir.getAbsolutePath() + "/" + imageName;
+            }        
             public void onFinish() {
-                String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-                String imageName = "/IMG_" + timeStamp + ".jpg";
-
                 String selectedImagePath = getIntent().getExtras().getString("selectedImagePath");
+                String selectedImagePathLower = selectedImagePath.toLowerCase();
+                boolean localFile = selectedImagePathLower.startsWith("/") || selectedImagePathLower.startsWith("file://");
+                File appFile = getFilesDir().getParentFile();
+                if (localFile && appFile != null) {
+                    localFile = selectedImagePath.replaceAll("file://", "").startsWith(appFile.getAbsolutePath());
+                }
+                if (!localFile) {
+                    selectedImagePath = getImagePath();
+                }
                 File file = new File(selectedImagePath);
-//                String newPath = getCacheDir() + imageName;
-//	            File file = new File(newPath);
-
                 try {
                     FileOutputStream out = new FileOutputStream(file);
                     if (parentImageRelativeLayout != null) {
