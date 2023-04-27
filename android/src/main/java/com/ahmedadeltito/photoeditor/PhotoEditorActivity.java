@@ -452,22 +452,22 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
                 public void onFinish() {
                     String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
                     String imageName = "IMG_" + timeStamp + ".jpg";
-                    Intent returnIntent = new Intent();
 
                     if (isSDCARDMounted()) {
-                        String folderName = "PhotoEditorSDK";
+                        String folderName = "zinc_annotations";
                         File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), folderName);
                         if (!mediaStorageDir.exists() && !mediaStorageDir.mkdirs()) {
                             Log.d("PhotoEditorSDK", "Failed to create directory");
                         }
 
-                        String selectedOutputPath = mediaStorageDir.getPath() + File.separator + imageName;
-                        returnIntent.putExtra("imagePath", selectedOutputPath);
-                        Log.d("PhotoEditorSDK", "selected camera path " + selectedOutputPath);
-                        File file = new File(selectedOutputPath);
+                        // Add the image to the gallery
+                        ContentValues values = new ContentValues();
+                        values.put(MediaStore.Images.Media.TITLE, imageName);
+                        values.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
+                        Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
 
                         try {
-                            FileOutputStream out = new FileOutputStream(file);
+                            OutputStream out = getContentResolver().openOutputStream(uri);
                             if (parentImageRelativeLayout != null) {
                                 parentImageRelativeLayout.setDrawingCacheEnabled(true);
 
@@ -480,7 +480,7 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
                             out.close();
 
                             try {
-                                ExifInterface exifDest = new ExifInterface(file.getAbsolutePath());
+                                ExifInterface exifDest = new ExifInterface(uri.getPath());
                                 exifDest.setAttribute(ExifInterface.TAG_ORIENTATION, Integer.toString(imageOrientation));
                                 exifDest.saveAttributes();
                             } catch (IOException e) {
@@ -490,12 +490,10 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
                             var7.printStackTrace();
                         }
                     }
-
-                    setResult(Activity.RESULT_OK, returnIntent);
-                    finish();
                 }
             }.start();
             Toast.makeText(this, getString(R.string.save_image_succeed), Toast.LENGTH_SHORT).show();
+            updateView(View.VISIBLE);
         } else {
             showPermissionRequest();
         }
