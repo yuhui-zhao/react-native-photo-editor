@@ -521,12 +521,12 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
                 return dir.getAbsolutePath() + "/" + imageName;
             }        
             public void onFinish() {
-                String selectedImagePath = getIntent().getExtras().getString("selectedImagePath");
+                String selectedImagePath = getIntent().getExtras().getString("selectedImagePath").replaceAll("file://", "");
                 String selectedImagePathLower = selectedImagePath.toLowerCase();
-                boolean localFile = selectedImagePathLower.startsWith("/") || selectedImagePathLower.startsWith("file://");
+                boolean localFile = selectedImagePathLower.startsWith("/");
                 File appFile = getFilesDir().getParentFile();
                 if (localFile && appFile != null) {
-                    localFile = selectedImagePath.replaceAll("file://", "").startsWith(appFile.getAbsolutePath());
+                    localFile = selectedImagePath.startsWith(appFile.getAbsolutePath());
                 }
                 if (!localFile) {
                     selectedImagePath = getImagePath();
