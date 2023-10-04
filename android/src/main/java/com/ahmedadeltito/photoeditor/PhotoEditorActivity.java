@@ -57,6 +57,7 @@ import com.ahmedadeltito.photoeditorsdk.CustomBrushDrawingView;
 import com.ahmedadeltito.photoeditorsdk.OnPhotoEditorSDKListener;
 import com.ahmedadeltito.photoeditorsdk.PhotoEditorSDK;
 import com.ahmedadeltito.photoeditorsdk.ViewType;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.viewpagerindicator.PageIndicator;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
@@ -113,6 +114,20 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
     private CustomBrushDrawingView brushDrawingView;
 
 
+    private Bitmap getBitmap(Bitmap bitmap) {
+        Bitmap rotatedBitmap;
+        try {
+            ExifInterface exif = new ExifInterface(selectedImagePath);
+            imageOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
+            rotatedBitmap = rotateBitmap(bitmap, imageOrientation, false);
+        } catch (IOException e) {
+            rotatedBitmap = bitmap;
+            imageOrientation = ExifInterface.ORIENTATION_NORMAL;
+            e.printStackTrace();
+        }
+        return rotatedBitmap;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -125,37 +140,29 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
         if (selectedImagePath.contains("content://")) {
             selectedImagePath = getPath(Uri.parse(selectedImagePath));
         }
-        doBeforeBitmapLoad();
-        Glide.with(this).asBitmap().load(selectedImagePath).into(new CustomTarget<Bitmap>() {
-            @Override
-            public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
-                doAfterBitmapLoad(resource);
-            }
 
-            @Override
-            public void onLoadCleared(@Nullable Drawable placeholder) {
-            }
-        });
-    }
-
-    private void doBeforeBitmapLoad() {
-        String color = getIntent().getExtras().getString("color");
-        Button goToNextTextView = (Button) findViewById(R.id.go_to_next_screen_tv);
-        goToNextTextView.setBackgroundColor(Color.parseColor(color));
-    }
-
-    private void doAfterBitmapLoad(Bitmap bitmap) {   
-        Bitmap rotatedBitmap;
         try {
-            ExifInterface exif = new ExifInterface(selectedImagePath);
-            imageOrientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-            rotatedBitmap = rotateBitmap(bitmap, imageOrientation, false);
-        } catch (IOException e) {
-            rotatedBitmap = bitmap;
-            imageOrientation = ExifInterface.ORIENTATION_NORMAL;
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = 1;
+            Bitmap bitmap = BitmapFactory.decodeFile(selectedImagePath, options);
+            Bitmap rotatedBitmap = getBitmap(bitmap);
+            doAfterBitmapLoad(rotatedBitmap);
+        } catch (Exception e) {
+            Glide.with(this).asBitmap().load(selectedImagePath).skipMemoryCache(true).diskCacheStrategy(DiskCacheStrategy.NONE).into(new CustomTarget<Bitmap>() {
+                @Override
+                public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                    Bitmap rotatedBitmap = getBitmap(resource);
+                    doAfterBitmapLoad(rotatedBitmap);
+                }
 
-            e.printStackTrace();
+                @Override
+                public void onLoadCleared(@Nullable Drawable placeholder) {
+                }
+            });
         }
+    }
+
+    private void doAfterBitmapLoad(Bitmap rotatedBitmap) {
 
 
         Typeface newFont = getFontFromRes(R.raw.eventtusicons);
@@ -178,6 +185,8 @@ public class PhotoEditorActivity extends AppCompatActivity implements View.OnCli
         doneDrawingTextView = (TextView) findViewById(R.id.done_drawing_tv);
         TextView clearAllTextView = (TextView) findViewById(R.id.clear_all_tv);
         Button goToNextTextView = (Button) findViewById(R.id.go_to_next_screen_tv);
+        String color = getIntent().getExtras().getString("color");
+        goToNextTextView.setBackgroundColor(Color.parseColor(color));
         photoEditImageView = (ImageView) findViewById(R.id.photo_edit_iv);
         mLayout = (SlidingUpPanelLayout) findViewById(R.id.sliding_layout);
         topShadow = findViewById(R.id.top_shadow);
